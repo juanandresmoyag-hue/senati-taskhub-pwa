@@ -1,0 +1,87 @@
+﻿<div class="app-shell">
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">Campus Virtual</p>
+      <h1>SENATI TaskHub</h1>
+    </div>
+
+    <span class="status" [class.online]="online" [class.offline]="!online">
+      {{ online ? 'Online' : 'Offline' }}
+    </span>
+  </header>
+
+  <main class="content">
+    <aside class="task-list">
+      <div class="list-header">
+        <h2>Mis tareas</h2>
+      </div>
+
+      <button
+        *ngFor="let tarea of listaTareas"
+        type="button"
+        class="task-card"
+        [class.selected]="tarea.id === tareaSeleccionadaId"
+        (click)="tareaSeleccionadaId = tarea.id"
+      >
+        <span class="course">{{ tarea.curso }}</span>
+        <strong>{{ tarea.titulo }}</strong>
+        <small>{{ tarea.instructor }}</small>
+        <div class="task-footer">
+          <span>{{ tarea.fechaEntrega }}</span>
+          <span class="badge" [class.completed]="tarea.estado === 'Completado'">
+            {{ tarea.estado }}
+          </span>
+        </div>
+      </button>
+    </aside>
+
+    <section class="panel" *ngIf="tareaSeleccionada; else emptyState">
+      <div class="panel-header">
+        <p class="label">Tarea seleccionada</p>
+        <h3>{{ tareaSeleccionada.titulo }}</h3>
+      </div>
+
+      <div class="meta-grid">
+        <div>
+          <span>Curso</span>
+          <strong>{{ tareaSeleccionada.curso }}</strong>
+        </div>
+        <div>
+          <span>Instructor</span>
+          <strong>{{ tareaSeleccionada.instructor }}</strong>
+        </div>
+        <div>
+          <span>Fecha de entrega</span>
+          <strong>{{ tareaSeleccionada.fechaEntrega }}</strong>
+        </div>
+        <div>
+          <span>Estado</span>
+          <strong>{{ tareaSeleccionada.estado }}</strong>
+        </div>
+      </div>
+
+      <label class="comment-label" for="comentarioEntrega">Comentario de entrega</label>
+      <textarea
+        id="comentarioEntrega"
+        rows="5"
+        [(ngModel)]="comentarioEntrega"
+        placeholder="Describe el avance, observaciones o requisitos del entregable..."
+      ></textarea>
+
+      <button type="button" class="submit-btn" (click)="enviarEntrega()">
+        {{ online ? 'Enviar entrega' : 'Guardar entregable localmente' }}
+      </button>
+
+      <p class="notification" [class.success]="online" [class.warning]="!online">
+        {{ notificacionMensaje || 'La información se sincronizará en cuanto la conexión se restablezca.' }}
+      </p>
+    </section>
+
+    <ng-template #emptyState>
+      <section class="panel empty-state">
+        <h3>Sin tareas disponibles</h3>
+        <p>La lista no pudo cargarse, intenta recargar la aplicación.</p>
+      </section>
+    </ng-template>
+  </main>
+</div>
