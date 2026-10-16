@@ -1,27 +1,41 @@
-# SenatiTaskhubPwa
+# SENATI TaskHub PWA
 
-This project was generated with [Angular CLI](https://github.com/angular/angular-cli) version 17.3.2.
+Aplicación Angular para consultar tareas académicas y registrar entregas en el dispositivo. El catálogo se lee desde JSON y las entregas se conservan en IndexedDB para que sigan disponibles después de recargar la página.
 
-## Development server
+## Requisitos y comandos
 
-Run `ng serve` for a dev server. Navigate to `http://localhost:4200/`. The application will automatically reload if you change any of the source files.
+El proyecto usa Angular 17.3. Instala las dependencias con `npm install` y ejecuta:
 
-## Code scaffolding
+| Comando | Uso |
+| --- | --- |
+| `npm start` | Iniciar el servidor de desarrollo en `http://localhost:4200/`. |
+| `npm run build` | Generar la aplicación en `dist/senati-taskhub-pwa/`. |
+| `npm test -- --watch=false` | Ejecutar las pruebas unitarias una vez. |
 
-Run `ng generate component component-name` to generate a new component. You can also use `ng generate directive|pipe|service|class|guard|interface|enum|module`.
+## Cómo funciona el código
 
-## Build
+### Catálogo de tareas
 
-Run `ng build` to build the project. The build artifacts will be stored in the `dist/` directory.
+- [`src/assets/data/tareas.json`](./src/assets/data/tareas.json) contiene el catálogo de partida. Cada tarea incluye `id`, `curso`, `titulo`, `instructor`, `fechaEntrega` y `estado`.
+- [`src/app/services/tarea.service.ts`](./src/app/services/tarea.service.ts) define el tipo `Tarea` y `TareaService.obtenerTareas()`, que recupera el JSON usando `HttpClient`.
+- [`src/app/app.component.ts`](./src/app/app.component.ts) llama a `cargarTareas()` al iniciar. La propiedad calculada `tareasFiltradas` combina el texto de búsqueda y el curso seleccionado; `tareaSeleccionadaId` mantiene la relación entre la tarea elegida y el formulario.
 
-## Running unit tests
+### Formulario y bandeja de entregas
 
-Run `ng test` to execute the unit tests via [Karma](https://karma-runner.github.io).
+- [`src/app/app.component.html`](./src/app/app.component.html) conecta los controles con el componente mediante `ngModel`, muestra la tarea seleccionada y presenta tanto el formulario como la bandeja **Mis entregas locales**.
+- `enviarEntrega()` en [`src/app/app.component.ts`](./src/app/app.component.ts) valida que exista una tarea y que el comentario no esté vacío. Si son válidos, crea la fecha y un identificador local, guarda la entrega y actualiza la bandeja; si no, muestra un mensaje específico.
+- `cargarEntregas()` recupera los registros guardados al iniciar. `cantidadPendiente` calcula el contador a partir de las entregas cargadas, no del indicador de conexión.
+- `verDetalle()` alterna la vista del identificador local, comentario y estado. `eliminarEntrega()` pide confirmación antes de borrar el registro y actualiza la lista únicamente después de eliminarlo de IndexedDB.
+- [`src/app/app.component.scss`](./src/app/app.component.scss) define la presentación adaptable de la lista, el formulario, los estados y la bandeja.
 
-## Running end-to-end tests
+### Almacenamiento local y sincronización
 
-Run `ng e2e` to execute the end-to-end tests via a platform of your choice. To use this command, you need to first add a package that implements end-to-end testing capabilities.
+[`src/app/services/storage.service.ts`](./src/app/services/storage.service.ts) administra IndexedDB:
 
-## Further help
+- `abrirDB()` abre `senatiTaskDB` y prepara el almacén `entregas_pendientes`.
+- `guardarEntregaLocal()` registra una entrega y devuelve su identificador numérico de IndexedDB.
+- `obtenerEntregas()` consulta los registros persistidos.
+- `eliminarEntrega()` elimina un registro por su identificador numérico.
 
-To get more help on the Angular CLI use `ng help` or go check out the [Angular CLI Overview and Command Reference](https://angular.io/cli) page.
+Cada registro contiene `id` (clave numérica de IndexedDB), `identificadorLocal` (UUID), `tareaId`, `comentario`, `fechaRegistro` (ISO 8601) y `estadoSincronizacion`. Una entrega nueva siempre empieza como `PENDIENTE`. Los eventos `online` y `offline` actualizan el indicador de conexión; `reintentarPendientes()` informa el resultado del reintento, pero no cambia el estado. Este proyecto no tiene una API de entregas, así que estar conectado no confirma sincronización y ningún registro pasa automáticamente a `SINCRONIZADO`.
+

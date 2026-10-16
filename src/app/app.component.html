@@ -3,84 +3,183 @@
     <div>
       <p class="eyebrow">Campus Virtual</p>
       <h1>SENATI TaskHub</h1>
+      <p class="header-note">Tus tareas y entregas, siempre a mano.</p>
     </div>
 
-    <span class="status" [class.online]="online" [class.offline]="!online">
-      {{ online ? 'Online' : 'Offline' }}
-    </span>
+    <div class="connection-summary">
+      <span class="status" [class.online]="online" [class.offline]="!online" aria-live="polite">
+        {{ online ? 'Con conexión' : 'Sin conexión' }}
+      </span>
+      <span class="pending-summary">{{ cantidadPendiente }} entrega(s) pendiente(s)</span>
+    </div>
   </header>
 
   <main class="content">
-    <aside class="task-list">
+    <aside class="task-list" aria-labelledby="task-list-title">
       <div class="list-header">
-        <h2>Mis tareas</h2>
+        <p class="section-kicker">Tu espacio académico</p>
+        <h2 id="task-list-title">Mis tareas</h2>
       </div>
 
+      <div class="filters">
+        <label for="buscarTarea">Buscar por título</label>
+        <input
+          id="buscarTarea"
+          type="search"
+          [(ngModel)]="busquedaTitulo"
+          placeholder="Ej. Laboratorio de redes"
+        />
+        <label for="filtrarCurso">Filtrar por curso</label>
+        <select id="filtrarCurso" [(ngModel)]="cursoSeleccionado">
+          <option value="">Todos los cursos</option>
+          <option *ngFor="let curso of cursosDisponibles" [value]="curso">{{ curso }}</option>
+        </select>
+      </div>
+
+      <p class="results-count">{{ tareasFiltradas.length }} tarea(s) encontrada(s)</p>
+
       <button
-        *ngFor="let tarea of listaTareas"
+        *ngFor="let tarea of tareasFiltradas"
         type="button"
         class="task-card"
         [class.selected]="tarea.id === tareaSeleccionadaId"
-        (click)="tareaSeleccionadaId = tarea.id"
+        [attr.aria-pressed]="tarea.id === tareaSeleccionadaId"
+        (click)="tareaSeleccionadaId = tarea.id; errorFormulario = ''"
       >
         <span class="course">{{ tarea.curso }}</span>
         <strong>{{ tarea.titulo }}</strong>
         <small>{{ tarea.instructor }}</small>
         <div class="task-footer">
-          <span>{{ tarea.fechaEntrega }}</span>
+          <span>Entrega: {{ tarea.fechaEntrega }}</span>
           <span class="badge" [class.completed]="tarea.estado === 'Completado'">
             {{ tarea.estado }}
           </span>
         </div>
       </button>
+
+      <p class="list-empty" *ngIf="tareasFiltradas.length === 0">
+        No encontramos tareas con esos filtros. Prueba con otro título o curso.
+      </p>
     </aside>
 
-    <section class="panel" *ngIf="tareaSeleccionada; else emptyState">
-      <div class="panel-header">
-        <p class="label">Tarea seleccionada</p>
-        <h3>{{ tareaSeleccionada.titulo }}</h3>
-      </div>
-
-      <div class="meta-grid">
-        <div>
-          <span>Curso</span>
-          <strong>{{ tareaSeleccionada.curso }}</strong>
+    <div class="main-column">
+      <section class="panel submission-panel" *ngIf="listaTareas.length > 0; else emptyState">
+        <div class="panel-header">
+          <p class="section-kicker">Lista para avanzar</p>
+          <h2>Prepara tu entrega</h2>
+          <p class="panel-intro">Elige una tarea, cuéntanos qué estás entregando y guárdala en tu bandeja.</p>
         </div>
-        <div>
-          <span>Instructor</span>
-          <strong>{{ tareaSeleccionada.instructor }}</strong>
-        </div>
-        <div>
-          <span>Fecha de entrega</span>
-          <strong>{{ tareaSeleccionada.fechaEntrega }}</strong>
-        </div>
-        <div>
-          <span>Estado</span>
-          <strong>{{ tareaSeleccionada.estado }}</strong>
-        </div>
-      </div>
 
-      <label class="comment-label" for="comentarioEntrega">Comentario de entrega</label>
-      <textarea
-        id="comentarioEntrega"
-        rows="5"
-        [(ngModel)]="comentarioEntrega"
-        placeholder="Describe el avance, observaciones o requisitos del entregable..."
-      ></textarea>
+        <div class="selected-task" *ngIf="tareaSeleccionada">
+          <span class="selected-icon" aria-hidden="true">✓</span>
+          <div>
+            <span class="selected-label">Vas a entregar para</span>
+            <strong>{{ tareaSeleccionada.titulo }}</strong>
+            <small>{{ tareaSeleccionada.curso }} · Fecha límite: {{ tareaSeleccionada.fechaEntrega }}</small>
+          </div>
+        </div>
 
-      <button type="button" class="submit-btn" (click)="enviarEntrega()">
-        {{ online ? 'Enviar entrega' : 'Guardar entregable localmente' }}
-      </button>
+        <label class="field-label" for="tareaEntrega">¿Qué tarea vas a entregar?</label>
+        <select
+          id="tareaEntrega"
+          class="form-control"
+          [(ngModel)]="tareaSeleccionadaId"
+          (ngModelChange)="errorFormulario = ''"
+        >
+          <option [ngValue]="null">Selecciona una tarea</option>
+          <option *ngFor="let tarea of listaTareas" [ngValue]="tarea.id">
+            {{ tarea.curso }} — {{ tarea.titulo }}
+          </option>
+        </select>
 
-      <p class="notification" [class.success]="online" [class.warning]="!online">
-        {{ notificacionMensaje || 'La información se sincronizará en cuanto la conexión se restablezca.' }}
-      </p>
-    </section>
+        <label class="field-label" for="comentarioEntrega">Cuéntanos sobre tu entrega</label>
+        <textarea
+          id="comentarioEntrega"
+          rows="5"
+          [(ngModel)]="comentarioEntrega"
+          (ngModelChange)="errorFormulario = ''"
+          placeholder="Por ejemplo: adjunto el avance del laboratorio y las observaciones solicitadas."
+        ></textarea>
+        <p class="helper-text">Puedes describir el avance, incluir observaciones o mencionar qué estás entregando.</p>
+
+        <p class="form-error" *ngIf="errorFormulario" role="alert">{{ errorFormulario }}</p>
+        <button type="button" class="submit-btn" (click)="enviarEntrega()">
+          Guardar mi entrega
+        </button>
+        <p class="notification" aria-live="polite" *ngIf="notificacionMensaje">
+          {{ notificacionMensaje }}
+        </p>
+        <p class="storage-note">
+          Tu entrega queda guardada en este dispositivo como pendiente. La conexión por sí sola no significa que se haya sincronizado.
+        </p>
+      </section>
+
+      <section class="panel inbox-panel" aria-labelledby="inbox-title">
+        <div class="inbox-heading">
+          <div>
+            <p class="section-kicker">Guardadas en este dispositivo</p>
+            <h2 id="inbox-title">Mis entregas locales</h2>
+          </div>
+          <span class="count-badge">{{ cantidadPendiente }} pendientes</span>
+        </div>
+
+        <p class="inbox-intro">
+          Estas entregas se conservan aunque cierres o recargues la página. Sin una API conectada, no se pueden sincronizar.
+        </p>
+
+        <button
+          type="button"
+          class="retry-btn"
+          *ngIf="online && cantidadPendiente > 0"
+          (click)="reintentarPendientes()"
+        >
+          Reintentar entregas pendientes
+        </button>
+
+        <div class="delivery-list" *ngIf="entregasLocales.length > 0; else noDeliveries">
+          <article class="delivery-card" *ngFor="let entrega of entregasLocales">
+            <div class="delivery-main">
+              <div class="delivery-copy">
+                <span class="course">{{ tareaDeEntrega(entrega.tareaId)?.curso || 'Curso no disponible' }}</span>
+                <h3>{{ tareaDeEntrega(entrega.tareaId)?.titulo || 'Tarea no disponible' }}</h3>
+                <p>Registrada: {{ entrega.fechaRegistro | date: 'medium' }}</p>
+              </div>
+              <span class="sync-status" [class.synced]="entrega.estadoSincronizacion === 'SINCRONIZADO'">
+                {{ entrega.estadoSincronizacion }}
+              </span>
+            </div>
+
+            <div class="delivery-actions">
+              <button type="button" class="text-btn" (click)="verDetalle(entrega.id)">
+                {{ detalleEntregaId === entrega.id ? 'Ocultar detalle' : 'Ver detalle' }}
+              </button>
+              <button type="button" class="text-btn delete-btn" (click)="eliminarEntrega(entrega)">
+                Eliminar
+              </button>
+            </div>
+
+            <div class="delivery-detail" *ngIf="detalleEntregaId === entrega.id">
+              <p><strong>Identificador local:</strong> {{ entrega.identificadorLocal }}</p>
+              <p><strong>Comentario:</strong> {{ entrega.comentario }}</p>
+              <p><strong>Estado de sincronización:</strong> {{ entrega.estadoSincronizacion }}</p>
+            </div>
+          </article>
+        </div>
+
+        <ng-template #noDeliveries>
+          <div class="inbox-empty">
+            <span class="empty-icon" aria-hidden="true">↥</span>
+            <h3>Aún no tienes entregas guardadas</h3>
+            <p>Cuando guardes una entrega, aparecerá aquí para que puedas consultarla en cualquier momento.</p>
+          </div>
+        </ng-template>
+      </section>
+    </div>
 
     <ng-template #emptyState>
       <section class="panel empty-state">
-        <h3>Sin tareas disponibles</h3>
-        <p>La lista no pudo cargarse, intenta recargar la aplicación.</p>
+        <h2>Sin tareas disponibles</h2>
+        <p>No pudimos cargar la lista de tareas. Revisa tu conexión e intenta recargar la aplicación.</p>
       </section>
     </ng-template>
   </main>

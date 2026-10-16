@@ -1,5 +1,18 @@
 import { Injectable } from '@angular/core';
 
+export type EstadoSincronizacion = 'PENDIENTE' | 'SINCRONIZADO';
+
+export interface EntregaLocal {
+  id: number;
+  identificadorLocal: string;
+  tareaId: number;
+  comentario: string;
+  fechaRegistro: string;
+  estadoSincronizacion: EstadoSincronizacion;
+}
+
+export type NuevaEntregaLocal = Omit<EntregaLocal, 'id'>;
+
 @Injectable({
   providedIn: 'root'
 })
@@ -27,27 +40,73 @@ export class StorageService {
     });
   }
 
-  async guardarEntregaLocal(entrega: Record<string, unknown>): Promise<void> {
+  async guardarEntregaLocal(entrega: NuevaEntregaLocal): Promise<EntregaLocal> {
     const db = await this.abrirDB();
 
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(this.storeName, 'readwrite');
-      const store = transaction.objectStore(this.storeName);
-      const registro = {
-        ...entrega,
-        fechaRegistro: new Date().toISOString(),
-        estadoSincronizacion: 'PENDIENTE'
-      };
+      const request = transaction.objectStore(this.storeName).add(entrega);
+      let id: number;
 
-      const request = store.add(registro);
+      request.onsuccess = () => {
+        id = request.result as number;
+      };
 
       transaction.oncomplete = () => {
-        console.log('✅ Entrega/observación guardada localmente en IndexedDB');
+        db.close();
+        resolve({ ...entrega, id });
+      };
+      transaction.onerror = () => {
+        db.close();
+        reject(transaction.error);
+      };
+      transaction.onabort = () => {
+        db.close();
+        reject(transaction.error ?? new Error('No se pudo guardar la entrega local.'));
+      };
+    });
+  }
+
+  async obtenerEntregas(): Promise<EntregaLocal[]> {
+    const db = await this.abrirDB();
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(this.storeName, 'readonly');
+      const request = transaction.objectStore(this.storeName).getAll();
+
+      request.onsuccess = () => resolve(request.result as EntregaLocal[]);
+      transaction.onerror = () => reject(transaction.error);
+      transaction.oncomplete = () => db.close();
+      transaction.onabort = () => {
+        db.close();
+        reject(transaction.error ?? new Error('No se pudieron consultar las entregas locales.'));
+      };
+      request.onerror = () => {
+        db.close();
+        reject(request.error);
+      };
+    });
+  }
+
+  async eliminarEntrega(id: number): Promise<void> {
+    const db = await this.abrirDB();
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(this.storeName, 'readwrite');
+      transaction.objectStore(this.storeName).delete(id);
+
+      transaction.oncomplete = () => {
+        db.close();
         resolve();
       };
-
-      transaction.onerror = () => reject(transaction.error);
-      request.onerror = () => reject(request.error);
+      transaction.onerror = () => {
+        db.close();
+        reject(transaction.error);
+      };
+      transaction.onabort = () => {
+        db.close();
+        reject(transaction.error ?? new Error('No se pudo eliminar la entrega local.'));
+      };
     });
   }
 }
